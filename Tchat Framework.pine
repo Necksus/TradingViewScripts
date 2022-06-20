@@ -1,0 +1,72 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Necksus
+
+//@version=5
+indicator(title="Tchat Framework", overlay=true)
+
+// Default colors
+SMA7BackgroundColor  = #FF0000CC
+SMA20BackgroundColor = #00FF00CC
+SMA50BackgroundColor = #0000FFCC
+BBBackgroundColor    = #B2B2B2CC
+
+// Constants
+BBLength  = 20
+
+// Input declarations
+source = close
+
+AngleLookBack   = input.int( 2, title = "Angle Period", minval = 1)
+ATRPeriod       = input.int(10, title = "ATR Period",   minval = 1)
+SMAAngleLevel   = input.int( 6, title = "SMA Angle Level",  minval = 1)
+BBAngleLevel    = input.int(10, title = "BB Angle Level",  minval = 1)
+
+// === Functions
+
+get_angle(y1, y2, length) =>
+    math.atan((y1 - y2) / length)*180/math.pi
+
+get_bb (source, length, stdDev) =>
+    basis = ta.sma(source, length)
+    dev = stdDev * ta.stdev(source, length)    
+    upper = basis + dev
+    lower = basis - dev    
+    [upper, lower]
+    
+f_angle(_src, _lookback, _atrPeriod) =>
+    rad2degree = 180 / math.pi
+    ang = rad2degree * math.atan((_src[0] - _src[_lookback]) / ta.atr(_atrPeriod)/_lookback)
+    ang    
+
+get_angle_color(angle, angleLevel, anglecolor) =>
+    color_L = angle > angle[1] and (angle > angleLevel or angle < -angleLevel) ? anglecolor :
+              angle < angle[1] and (angle > angleLevel or angle < -angleLevel) ? anglecolor : color.new(anglecolor, 80)
+    color_L
+
+is_angle_flat(angle, angleLevel) =>
+    result = angle > angle[1] and (angle > angleLevel or angle < -angleLevel) ? false :
+              angle < angle[1] and (angle > angleLevel or angle < -angleLevel) ? false : true
+    result
+    
+
+// === Draw Bollinger Bands 
+StdDev = syminfo.type != "forex" ? 2 : 2.5  // IVT use standard deviation 2 for Forex, and 2.5 for others (stocks, index, commodities and crypto)
+[UpperBB, LowerBB] = get_bb(source, BBLength, StdDev)
+BBAngle=f_angle(UpperBB, AngleLookBack, ATRPeriod)
+plot(UpperBB, color=get_angle_color(BBAngle, BBAngleLevel, BBBackgroundColor), linewidth=4, title= "Upper Bollinger Band")
+plot(LowerBB, color=get_angle_color(BBAngle, BBAngleLevel, BBBackgroundColor), linewidth=4, title= "Lower Bollinger Band")
+
+// === Draw Moving Average 7, 20 and 50
+sma7=ta.sma(source, 7)
+plot(sma7, color=SMA7BackgroundColor, linewidth=1, title="SMA 7")
+sma20=ta.sma(source, 20)
+plot(sma20, color=SMA20BackgroundColor, linewidth=2, title="SMA 20")
+sma50=ta.sma(source, 50)
+SMA50Angle=f_angle(sma50, AngleLookBack, ATRPeriod)
+plot(sma50, color=get_angle_color(SMA50Angle, SMAAngleLevel, SMA50BackgroundColor), linewidth=3, title="SMA 50")
+
+
+if not is_angle_flat(SMA50Angle, SMAAngleLevel)  and is_angle_flat(BBAngle, BBAngleLevel) and high > sma20
+    label.new(x=bar_index, y=high, color=color.black, textcolor=color.white, text="Combo")
+    
+    

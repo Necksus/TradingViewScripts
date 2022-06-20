@@ -1,0 +1,133 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// @version = 4
+// @author  = The_Caretaker
+// © The_Caretaker
+//
+// Much respect to the original creator of this idea Mr Johhny Dough
+// And the related works of Giorgos Siligardos and Dimitris Tsokakis
+//
+// The prior work of the above mentioned inspired me to bring the idea to its logical conclusion on the MACD 
+// by creating the reverse MACD EMA & SMA signal line cross functions
+// 
+// Feel free to reuse or develop this script further, please drop me a note below if you find it useful.
+//
+
+study ( "CT Reverse MACD Cross" , "CT_MACD" , false, format.price , precision = 2 )
+
+//////////////////////////////////////////////////////////////////////////////
+// Inputs
+
+source_price    = input ( close,    "Source",                   input.source )
+
+fast_length     = input ( 12,       "MACD Fast Period",         input.integer, minval = 1, maxval = 500 )
+slow_length     = input ( 26,       "MACD Slow Period",         input.integer, minval = 1, maxval = 500 )
+signal_length   = input ( 9,        "Signal Line Period",       input.integer, minval = 1, maxval = 50 )
+ema_signal_on   = input ( true,     "EMA Signal Line",          input.bool )
+sma_signal_on   = input ( false,    "SMA Signal Line",          input.bool )
+dec_places      = input ( 0,        "Decimal Places",           input.integer, minval = 0, maxval = 10 )
+label_offset    = input ( 6,        "Label Offset",             input.integer, minval = 0, maxval = 100 )
+label_bg_color  = input ( #FFFFFF,  "Label Text Color",         input.color )
+label_txt_below = input ( #EF5350,  "Label Color MACD Falling", input.color )
+label_txt_above = input ( #26A69A,  "Label Color MACD Rising",  input.color )
+ema_hist_on     = input ( true,     "EMA Histogram",            input.bool )
+sma_hist_on     = input ( false,    "SMA Histogram",            input.bool )
+
+//////////////////////////////////////////////////////////////////////////////
+// Function Declarations
+
+alpha ( len ) => 2 / ( len + 1 )
+     
+     // returns exponential weighted multiplier for period len
+
+macd_eq ( price, fast_len, slow_len ) =>
+     (( alpha ( fast_len )) * ema ( price, fast_len )[1]  - ( alpha ( slow_len )) * ema ( price, slow_len )[1] ) / ( alpha ( fast_len ) - alpha ( slow_len ))
+     
+    // returns price where MACD is equal to previous bar MACD
+    // the user can infer from this that 
+    // closing above this price will cause an increase of the MACD compared to the prior MACD
+    // and closing below it will cause a decrease of the MACD compared to the prior MACD
+
+macd_level ( level, price, fast_len, slow_len ) => 
+     ( level + ( 1 - alpha ( slow_len )) * ema ( price, slow_len )[1] - ( 1 - alpha ( fast_len )) * ema ( price, fast_len )[1] ) / ( alpha ( fast_len ) - alpha ( slow_len )) 
+
+    // returns price where MACD is equal to level value
+    // e.g. macd_level ( 0, close, 12, 26 ) 
+    // would return the next closing price which would make MACD = 0
+
+macd_cross_ema ( P, V, X, Y, Z ) =>
+     ( ema(P,X)[1]*alpha(X)*alpha(Z) -ema(P,Y)[1]*alpha(Y)*alpha(Z) -ema(P,X)[1]*alpha(X) +ema(P,Y)[1]*alpha(Y) +ema(P,Y)[1]*alpha(Z) +ema(V,Z)[1]*alpha(Z) -ema(P,X)[1]*alpha(Z) -ema(P,Y)[1] -ema(V,Z)[1] +ema(P,X)[1])/
+     ( alpha(X)*alpha(Z) -alpha(Y)*alpha(Z) -alpha(X) +alpha(Y))
+
+    // returns price where MACD is equal to the signal line
+    // the user can infer from this that 
+    // closing above this price will cause the MACD to cross above the EMA signal line
+    // and closing below it will cause the MACD to cross below the EMA signal line
+
+macd_cross_sma ( P, V, X, Y, Z ) =>
+     ( ema(P,X)[1]*alpha(X)*Z -ema(P,Y)[1]*alpha(Y)*Z +sum(V[1],Z-1) -ema(P,X)[1]*alpha(X) +ema(P,Y)[1]*alpha(Y) -ema(P,X)[1]*Z +ema(P,Y)[1]*Z +ema(P,X)[1] -ema(P,Y)[1] )/
+     ( ( -1 +Z ) * ( alpha(X) -alpha(Y) ) )
+
+    // returns price where MACD is equal to SMA signal line
+    // the user can infer from this that 
+    // closing above this price will cause the MACD to cross above the SMA signal line
+    // and closing below it will cause the MACD to cross below the SMA signal line
+
+text_eq ( p, x, d ) => 
+    text = p > x ? "MACD\n\n Continues Rising Above : " + tostring(int(x*pow(10,d))/pow(10,d)) : "MACD\n\n Continues Falling Below (Eq) :" + tostring(int(x*pow(10,d))/pow(10,d))
+
+text_cross ( p, x, y, d, a, b ) => 
+    ema_text = p > x ? "Cross Below EMA Signal Line : " + tostring(int(x*pow(10,d))/pow(10,d)) : "Cross Above EMA Signal Line : " + tostring(int(x*pow(10,d))/pow(10,d))
+    sma_text = p > y ? "Cross Below SMA Signal Line : " + tostring(int(y*pow(10,d))/pow(10,d)) : "Cross Above SMA Signal Line : " + tostring(int(y*pow(10,d))/pow(10,d))
+    text = a and b ? ema_text + "\n\n" + sma_text : a ? ema_text : b ? sma_text : ""
+
+text_zero ( p, x, d ) => 
+    text = p > x ? "Cross Below Zero Line : " + tostring(int(x*pow(10,d))/pow(10,d)) : "Cross Above Zero Line : " + tostring(int(x*pow(10,d))/pow(10,d))
+
+//////////////////////////////////////////////////////////////////////////////
+// Calculations
+
+fast_ema        = ema ( source_price, fast_length ) 
+slow_ema        = ema ( source_price, slow_length ) 
+
+macd            = fast_ema - slow_ema
+
+ema_sig_line    = ema ( macd, signal_length )
+sma_sig_line    = sma ( macd, signal_length )
+
+ema_hist        = macd - ema_sig_line
+sma_hist        = macd - sma_sig_line
+
+reverse_macd    = macd_eq ( source_price, fast_length, slow_length )
+
+macd_ema_cross  = macd_cross_ema ( source_price, macd, fast_length, slow_length, signal_length )
+macd_sma_cross  = macd_cross_sma ( source_price, macd, fast_length, slow_length, signal_length )
+
+macd_zero_line  = macd_level ( 0, source_price, fast_length, slow_length )
+
+label_text      = text_eq ( source_price, reverse_macd, dec_places ) + "\n\n" + text_cross ( source_price, macd_ema_cross, macd_sma_cross, dec_places, ema_signal_on, sma_signal_on ) + "\n\n" + text_zero ( source_price, macd_zero_line, dec_places )+"\n"
+
+//////////////////////////////////////////////////////////////////////////////
+// Plots and Fills
+
+col_grow_above  = #26A69A
+col_grow_below  = #FFCDD2
+col_fall_above  = #B2DFDB
+col_fall_below  = #EF5350
+
+label_X_Loc     = time_close + (( time_close - time_close[1] ) * label_offset ) // Set Label offset
+
+plot ( ema_hist_on ? ema_hist :na , "EMA Histogram", style=plot.style_columns, color=(ema_hist>=0 ? (ema_hist[1] < ema_hist ? col_grow_above : col_fall_above) : (ema_hist[1] < ema_hist ? col_grow_below : col_fall_below) ), transp=0 )
+plot ( sma_hist_on ? sma_hist :na , "SMA Histogram", style=plot.style_columns, color=(sma_hist>=0 ? (sma_hist[1] < sma_hist ? col_grow_above : col_fall_above) : (sma_hist[1] < sma_hist ? col_grow_below : col_fall_below) ), transp=0 )
+
+plot ( macd,        "MACD Line",        color.blue,   2, style = plot.style_line, transp = 0 )
+plot ( 0,           "MACD Zero Line",   color.silver, 1, style = plot.style_line, transp = 0 )
+
+plot ( ema_signal_on ? ema_sig_line : na, "MACD EMA Signal Line", color.red, 2, style = plot.style_line, transp = 0 )
+plot ( sma_signal_on ? sma_sig_line : na, "MACD SMA Signal Line", color.yellow, 2, style = plot.style_line, transp = 0 )
+
+label = label.new ( label_X_Loc, 0, label_text , xloc.bar_time, yloc.price, macd<macd[1]?label_txt_below:label_txt_above, label.style_label_left, label_bg_color, size=size.normal )
+
+label.delete ( label[1] )   // Delete Previous Label
+
+//////////////////////////////////////////////////////////////////////////////
+// End

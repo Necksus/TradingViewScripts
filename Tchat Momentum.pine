@@ -1,0 +1,39 @@
+//@version=5
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Necksus
+indicator(title='Tchat Framework')
+
+source = close
+fastLength = input.int(12, minval=1)
+slowLength=input.int(26,minval=1)
+signalLength=input.int(9,minval=1)
+
+// FAST LINE
+ema1= ta.ema(source, fastLength)
+ema2 = ta.ema(ema1,fastLength)
+differenceFast = ema1 - ema2
+zerolagEMA = ema1 + differenceFast
+demaFast = (2 * ema1) - ema2
+
+// SLOW LINE
+emas1= ta.ema(source , slowLength)
+emas2 = ta.ema(emas1 , slowLength)
+differenceSlow = emas1 - emas2
+zerolagslowMA = emas1 + differenceSlow
+demaSlow = (2 * emas1) - emas2
+
+//MACD LINE
+ZeroLagMACD = demaFast - demaSlow
+
+//SIGNAL LINE
+emasig1 = ta.ema(ZeroLagMACD, signalLength)
+emasig2 = ta.ema(emasig1, signalLength)
+signal = (2 * emasig1) - emasig2
+
+hist = ZeroLagMACD -signal
+cHist = hist > 0 ? color.lime : color.red
+plot(hist, title="histogram", style=plot.style_columns, color = cHist, linewidth = 10)
+signalLine=plot(signal, title="signal", color=color.red ,linewidth = 1)
+zlLine = plot(ZeroLagMACD, title="MACD 0 Lag", color=color.blue)
+cDif = hist > 0 ? color.blue : color.red
+fill(zlLine, signalLine, color=cDif)

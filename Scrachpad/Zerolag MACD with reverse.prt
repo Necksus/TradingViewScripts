@@ -1,0 +1,42 @@
+// https://www.prorealcode.com/topic/reverse-engineering-of-the-zero-lag-macd/
+
+defparam drawonlastbaronly=true
+ 
+ONCE fastLength = 12
+ONCE slowLength = 26
+ONCE signalLength  = 9
+ 
+ema1 = exponentialaverage[fastLength](close)
+ema2 = exponentialaverage[fastLength](ema1)
+differenceFast = ema1 - ema2
+zerolagEMA = ema1 + differenceFast
+ 
+emas1 = exponentialaverage[slowLength](close)
+emas2 = exponentialaverage[slowLength](emas1)
+differenceSlow = emas1 - emas2
+zerolagslowMA = emas1 + differenceSlow
+ 
+ZeroLagMACD = zerolagEMA - zerolagslowMA					???????????
+ 
+emasig1=ExponentialAverage[signalLength](ZEROLAGMACD)
+emasig2=ExponentialAverage[signalLength](emasig1)
+DIFFERENCE2=emasig1-emasig2
+ 
+signal=emasig1+DIFFERENCE2									???????????
+ 
+ 
+alphaX=2/(1+fastLength)
+alphaY=2/(1+slowLength)
+prevEMA1=zerolagEMA[1]
+prevEMA2=zerolagslowMA[1]
+ 
+ 
+ 
+ 
+priceMACD=(signal+((1-alphaY)*prevEMA2)-((1-alphaX)*prevEMA1))/(alphaX-alphaY)
+ 
+pricerounded=round(priceMACD)
+drawtext("ZMACD crossing:#pricerounded#",barindex,priceMACD+2,SansSerif,Bold,10)
+DRAWSEGMENT(barindex-10,priceMACD,barindex,priceMACD) coloured(0,0,0)
+ 
+return
